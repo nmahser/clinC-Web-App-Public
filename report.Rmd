@@ -1,0 +1,1880 @@
+---
+title: |
+  | \vspace{5cm} 
+
+output:
+  html_document:
+    self_contained: no
+    toc: yes
+    toc_depth: 2
+    toc_float: True
+    number_sections: true
+    
+params:
+  n: ""
+---
+```{r global, include=FALSE}
+
+screeningData = read.csv(file = params$n)
+
+```
+
+
+```{css, echo=FALSE}
+caption {
+      font-weight: bold;
+      font-size: 120%;
+      color: "black";
+
+} 
+
+
+body{
+  font-family: Garamond;
+  font-size: 13pt;
+}
+/* Headers */
+h2,h3,h4,h5,h6{
+  font-size: 15pt;
+  text-align:left;
+  font-weight: bold;
+  color:rgb(92, 92, 92);
+}
+
+/* Headers */
+h1{
+  font-size: 17pt;
+  text-align:center;
+  font-weight: bold;
+  color:rgb(92, 92, 92)
+}
+```
+
+```{r, echo=FALSE,message=FALSE}
+library(knitr)
+library(kableExtra) #Table styling
+library(plyr)
+library(dplyr) #Data wrangling
+library(stringr) #Manipulating strings
+library(formattable) #useful with KableExtra
+library(eeptools) #converts dates to age
+library(lubridate) #Date manipulation
+library(janitor) #Freq table creation
+
+
+#screeningData = read.csv(file = cleanedData.csv, sep = ",")
+
+#Create Study Arm column to group participant type, such as Healty, Early Alzheimer
+screeningData = screeningData %>%
+  mutate(StudyArm = ifelse(str_detect(Study.Subject.ID,"26-1") | str_detect(Study.Subject.ID,"26-5"),"Healthy",
+ifelse(str_detect(Study.Subject.ID,"26-2") | str_detect(Study.Subject.ID,"26-6"),"Early Alzheimer",
+ifelse(str_detect(Study.Subject.ID,"26-3") | str_detect(Study.Subject.ID,"26-7"),"Depression",
+ifelse(str_detect(Study.Subject.ID,"26-4") | str_detect(Study.Subject.ID,"26-8"),"MCI",
+ifelse(str_detect(Study.Subject.ID,"26-0") | str_detect(Study.Subject.ID,"26-9"),"General","NAN"))))))
+
+#Some Ages are missing in the raw data. So we calculate them from the DOB
+DOB = screeningData$DOB          
+DOB = mdy(DOB)
+DOB_date = as.Date(ifelse(DOB > "2012-12-31", format(DOB, "19%y-%m-%d"), format(DOB)))
+
+screeningData = screeningData %>%
+  mutate(ageAccurate = round(age_calc(DOB_date, enddate = Sys.Date(), units = "years", precise = TRUE),0))
+
+#Age groups
+screeningData$group = cut(screeningData$ageAccurate, breaks = c(50,64,74,88))
+
+#MMSE points groups
+screeningData$mmseScoreRange = cut(screeningData$MMSETotalScore, breaks = c(0,19,25,Inf))
+
+#BDI points groups
+screeningData$bdiScoreRange = cut(screeningData$BECKSTotalSore, breaks = c(-1,0,10,16,20,30))
+
+#BMI classification
+screeningData = screeningData %>%
+  mutate(BMIclassification = ifelse(BodyMassIndex <= 18.49,0,
+   ifelse(BodyMassIndex <= 24.99,1,
+   ifelse(BodyMassIndex <= 29.99,2,
+   ifelse(BodyMassIndex <=100,3,4)))))
+
+#MocaClassification
+screeningData = screeningData %>%
+  mutate(MOCAclassification = ifelse(MOCATotalScore == 0,-2,
+   ifelse(MOCATotalScore <= 20,-1,
+   ifelse(MOCATotalScore <= 25,0,
+   ifelse(MOCATotalScore <= 100,1,2)))))
+
+#HAM-D Score classification
+screeningData = screeningData %>%
+  mutate(HAMDclassification = ifelse(HAMDScore <= 7,0,
+   ifelse(HAMDScore <= 13,1,
+   ifelse(HAMDScore <= 18,2,
+   ifelse(HAMDScore <= 100,3,4)))))
+
+#Dass Depression score classification
+screeningData = screeningData %>%
+  mutate(DASSclassification = ifelse(DassDepressionScore <= 4,0,
+   ifelse(DassDepressionScore <= 6,1,
+   ifelse(DassDepressionScore <=10,2,
+   ifelse(DassDepressionScore <=13,3,4)))))
+
+#DASS Anxiety Scores - Overall
+screeningData = screeningData %>%
+   mutate(DASSclassification_A = ifelse(DASSAnxietyScore <= 3,0,
+    ifelse(DASSAnxietyScore <= 5,1,
+    ifelse(DASSAnxietyScore <= 7,2,
+    ifelse(DASSAnxietyScore <= 9,3,
+    ifelse(DASSAnxietyScore <= 20,4,5 ))))))
+
+#DASS Stress Scoress - Overall
+screeningData = screeningData %>%
+  mutate(DASSclassification_S = ifelse(DASSStressScore <= 7,0,
+    ifelse(DASSStressScore <=9,1,
+    ifelse(DASSStressScore <=12,2,
+    ifelse(DASSStressScore <=16,3,4)))))
+
+```
+
+<img style="float: right;" src="theVillages.png">
+
+<br style = "line-height:17;"><br>
+
+
+
+<p align="center">
+<font size="16" color ="DarkGreen">Preliminary Demographic Data</font>
+</p>
+
+
+<p align="center">
+DELETED Reference Database & Longitudinal Registry of the Normal and Pathological Aging Brain: Brain Network Activation Analysis for the Adult and Elderly Population Using Evoked Response Potentials.</p>
+<br style = "line-height:13;"><br>
+
+
+
+
+
+
+
+
+
+
+----------------------------------------------------------------------------------------------------
+
+<p align="center">DELETED,
+DELETED</p>
+
+<br style = "line-height:6;"><br>
+
+# Preliminary Demographic Findings
+
+<p align="left">
+Preliminary demographic data is presented from the DELETED _Reference Database & Longitudinal Registry of the Normal and Pathological Aging Brain: Brain Network Activation Analysis for the Adult and Elderly Population Using Evoked Response Potentials_ project from study inception through `r Sys.Date()`.
+In total, visit 1 comprehensive health assessment data is available for `r length(screeningData$StudyArm)` participants across the following study arms:</p>
+
+1.	Healthy
+2.	Alzheimer's Disease
+3.	Depression
+4.	Mild Cognitive Impairment (MCI)
+5.	General (Parkinson's Disease, Multiple Sclerosis, Anxiety, etc.)
+
+<p align="left">
+Additional abbreviations:
+<ul>
+  <li>Mini Mental State Exam (MMSE)</li>
+  <li>Beck Depression Inventory (BDI)</li>
+</ul>
+</p>
+
+```{r, echo=FALSE,message=FALSE}
+####Common functions: addSums, addN, addPropTable. There are some functions that are not being used.This section needs to be cleaned up!
+
+#addSums: Function to convert it frequecny table and add Sum Col and Row
+addSums = function(r,c,dfName) {
+  dfName = as.character(substitute(dfName))
+  tName = table(r,c)
+  tName = addmargins(tName)
+  tName = as.data.frame.matrix(tName) 
+  dfName = assign(dfName,tName,envir = .GlobalEnv)
+  return(dfName)
+}
+
+#Caregivers data set
+careGivers = screeningData %>%
+  filter(CSICurrentlyProvideCare1 == "Yes")
+
+#Add N() to each cell and arrange cols in order of H,EA,D,MCI,G,S
+addN = function(f_table,N_name) {
+  N_name = as.character(substitute(N_name)) ####What the fuck you did here...
+  f_table[] = sapply(f_table,function(x){paste("(N=",x,")", sep = "")})
+  f_table = f_table[c(4,2,1,5,3,6)]
+  N_name = assign(N_name,f_table, envir = .GlobalEnv)
+  return(N_name)
+}
+
+#Add N() orderless
+addN_orderless = function(f_table,N_name) {
+  N_name = as.character(substitute(N_name)) ####What the fuck you did here...
+  f_table[] = sapply(f_table,function(x){paste("(N=",x,")", sep = "")})
+  N_name = assign(N_name,f_table, envir = .GlobalEnv)
+  return(N_name)
+}
+
+#addPropTable: create df for prop table and paste "%"
+addPropTable = function(df,t_name) {
+  t_name= as.character(substitute(t_name)) ####What the fuck you did here...
+  df = sapply(df, function(x){round(x/length(screeningData$StudyArm)*100,1)})
+  df[] = sapply(df, function(x){paste(x,"%",sep = "")})
+  df = as.data.frame(df)
+  df = df[c(4,2,1,5,3,6)]
+  t_name = assign(t_name,df,envir = .GlobalEnv)
+  return(t_name)
+}
+
+addPropTable_care = function(df,t_name) {
+  t_name= as.character(substitute(t_name)) ####What the fuck you did here...
+  df = sapply(df, function(x){round(x/length(ageRange_care$StudyArm)*100,1)})
+  df[] = sapply(df, function(x){paste(x,"%",sep = "")})
+  df = as.data.frame(df)
+  df = df[c(3,1,2,4)]
+  t_name = assign(t_name,df,envir = .GlobalEnv)
+  return(t_name)
+}
+
+addPropTable_orderless = function(df,t_name) {
+  t_name= as.character(substitute(t_name)) ####What the fuck you did here...
+  df = sapply(df, function(x){round(x/length(screeningData$StudyArm)*100,1)})
+  df[] = sapply(df, function(x){paste(x,"%",sep = "")})
+  df = as.data.frame(df)
+  t_name = assign(t_name,df,envir = .GlobalEnv)
+  return(t_name)
+}
+
+#addPropTable for caregivers
+addPropTable_care_or = function(df,t_name) {
+  t_name= as.character(substitute(t_name)) ####What the fuck you did here...
+  df = sapply(df, function(x){round(x/length(ageRange_care$StudyArm)*100,1)})
+  df[] = sapply(df, function(x){paste(x,"%",sep = "")})
+  df = as.data.frame(df)
+  t_name = assign(t_name,df,envir = .GlobalEnv)
+  return(t_name)
+}
+
+addN_care = function(f_table,N_name) {
+  N_name = as.character(substitute(N_name)) ####What the fuck you did here...
+  f_table[] = sapply(f_table,function(x){paste("(N=",x,")", sep = "")})
+  f_table = f_table[c(3,1,2,4)]
+  N_name = assign(N_name,f_table, envir = .GlobalEnv)
+  return(N_name)
+}
+
+#Frequency tables
+addFreq = function(r,dfName) {
+  dfName = as.character(substitute(dfName))
+  tName = tabyl(r) %>%
+    adorn_totals("row")
+  colnames(tName)=c("","Frequency","Percentage (%)")
+  tName["Percentage (%)"] = round(tName["Percentage (%)"],3) * 100
+  dfName = assign(dfName,tName,envir = .GlobalEnv)
+  return(dfName)
+}
+
+
+#New format
+newaddPropTable = function(df,t_name) {
+   t_name= as.character(substitute(t_name))
+   df_2=c()
+  for (i in 1:nrow(df)) {
+  df_2[[i]] = sapply(df[i,],function(x){round(x/df[i,"Sum"]*100,1)})
+  }
+df_2 = do.call(rbind, df_2)
+df_2[] = sapply(df_2, function(x){paste(x,"%",sep = "")})
+  df_2 = as.data.frame(df_2)
+  df_2 = df_2[c(4,2,1,5,3,6)]
+  t_name = assign(t_name,df_2,envir = .GlobalEnv)
+  return(t_name)
+}
+
+#New format orderless
+newaddPropTable_orderless = function(df,t_name) {
+   t_name= as.character(substitute(t_name))
+   df_2=c()
+  for (i in 1:nrow(df)) {
+  df_2[[i]] = sapply(df[i,],function(x){round(x/df[i,"Sum"]*100,1)})
+  }
+df_2 = do.call(rbind, df_2)
+df_2[] = sapply(df_2, function(x){paste(x,"%",sep = "")})
+  df_2 = as.data.frame(df_2)
+  t_name = assign(t_name,df_2,envir = .GlobalEnv)
+  return(t_name)
+}
+
+```
+
+
+## Gender: Overall Sample
+```{r, echo=FALSE,message=FALSE}
+# 1 Gender Overall 
+
+#For row names
+
+invisible(addSums(screeningData$GENDER,screeningData$StudyArm,gender_overall_2))
+invisible(addPropTable(gender_overall_2,gender_overall_p_2))
+
+#
+invisible(addSums(screeningData$GENDER,screeningData$StudyArm,gender_overall))
+invisible(newaddPropTable(gender_overall,gender_overall_p))
+invisible(addN(gender_overall,gender_overall))
+
+
+#merged prob and count tables
+merged_overall_gender = rbind(gender_overall_p,gender_overall)
+merged_overall_gender= merged_overall_gender[c(2,5,1,4,3,6),]
+colnames(merged_overall_gender)[6] =c("Total")
+rowNames = c(as.character(gender_overall_p_2[2,"Sum"]),"",as.character(gender_overall_p_2[1,"Sum"]),"  ",as.character(gender_overall_p_2[3,"Sum"]),"     ")
+rownames(merged_overall_gender)=rowNames
+
+#Create the Table
+merged_overall_gender = merged_overall_gender %>%
+  kable(escape = F, align = "c")%>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(c(1,7), bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(c(5,6), bold = T, italic = T) %>%
+  add_header_above(c("Study Arm" = 7), bold = TRUE, italic = TRUE) %>%
+  group_rows(index=c("Male"=2,"Female"=2,"Total"=2),label_row_css = "background-color: #F4EEEE;",bold = T)
+merged_overall_gender
+```
+## Gender: Caregivers (N=102)
+```{r, echo=FALSE,message=FALSE,echo=FALSE}
+#Freq for Care givers (2)
+invisible(addFreq(careGivers$GENDER,f_gender))
+
+#Switch rows
+f_gender=f_gender[c(2,1,3),]
+rowNames=c(""," ","   ")
+rownames(f_gender) = rowNames
+
+f_gender = f_gender %>%
+  kable(escape = F, align = "c")%>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(2, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(3, bold = T, italic = T)
+ 
+f_gender
+```
+## Age Range: Overall Sample
+```{r, echo=FALSE,message=FALSE,echo=FALSE}
+###Age Range Overall Sample (3)
+
+#Row names
+invisible(addSums(screeningData$group,screeningData$StudyArm,range_overall_2))
+invisible(addPropTable(range_overall_2,range_overall_p_2))
+
+
+#AddSums
+invisible(addSums(screeningData$group,screeningData$StudyArm,range_overall))
+#Add prop and N
+invisible(newaddPropTable(range_overall,range_overall_p))
+invisible(addN(range_overall,range_overall))
+
+#Merged Prop and Freq
+merged_overall_range = rbind(range_overall,range_overall_p)
+merged_overall_range= merged_overall_range[c(5,1,6,2,7,3,8,4),]
+colnames(merged_overall_range)[6] ="Total"
+rowNames = c(as.character(range_overall_p_2[1,"Sum"]),"",as.character(range_overall_p_2[2,"Sum"])," ",as.character(range_overall_p_2[3,"Sum"]),"  ",as.character(range_overall_p_2[4,"Sum"]),"    ")
+rownames(merged_overall_range)=rowNames
+
+#Table
+merged_overall_range = merged_overall_range %>%
+  kable(escape = F, align = "c")%>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(c(1,7), bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(c(7,8), bold = T, italic = T) %>%
+  add_header_above(c("Study Arm" = 7), bold = TRUE, italic = TRUE) %>%
+  group_rows(index=c("50-64"=2,"65-74"=2,"75-84"=2,"Total"=2),label_row_css = "background-color: #F4EEEE;",bold = T)
+merged_overall_range
+
+
+```
+## Age Range: Caregivers
+```{r, echo=FALSE,message=FALSE}
+###Age Range: Caregivers # nEED TO REVIEW THIS. Not automated. what if we have MCI caregiver...
+#Filter Caregivers
+ageRange_care = screeningData %>%
+  select(ageAccurate,StudyArm,CSICurrentlyProvideCare1,group) %>%
+  filter(CSICurrentlyProvideCare1 == "Yes")
+
+#for row names
+invisible(addSums(ageRange_care$group,ageRange_care$StudyArm,age_care_2))
+invisible(addPropTable_care(age_care_2,age_care_p_2))
+
+
+#
+invisible(addSums(ageRange_care$group,ageRange_care$StudyArm,age_care))
+invisible(newaddPropTable_orderless(age_care,age_care_p))
+invisible(addN_care(age_care,age_care))
+
+#Merged
+# merged_age_care = rbind(age_care_p,age_care)
+# merged_age_care= merged_age_care[c(1,5,2,6,3,7,4,8),]
+# colnames(merged_age_care)[4] ="Total"
+# rowNames = c(as.character(age_care_p_2[1,"Sum"]),"",as.character(age_care_p_2[2,"Sum"])," ",as.character(age_care_p_2[3,"Sum"]),"  ",as.character(age_care_p_2[4,"Sum"]),"    ")
+# rownames(merged_age_care)=rowNames
+# merged_age_care=merged_age_care[,c(3,1,2,4)]
+# age_care_p_2
+# #Table
+# merged_age_care = merged_age_care %>%
+#   kable(escape = F, align = "c")%>%
+#   kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+#   column_spec(c(1,5), bold = T) %>%
+#   row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+#   row_spec(c(7,8), bold = T, italic = T) %>%
+#   add_header_above(c("Study Arm" = 5), bold = TRUE, italic = TRUE) %>%
+#   group_rows(index=c("50-64"=2,"65-74"=2,"75-84"=2,"Total"=2),label_row_css = "background-color: #F4EEEE;",bold = T)
+# merged_age_care
+```
+
+## Level of Education: Overall Sample
+```{r, echo=FALSE,message=FALSE}
+#Level of Education Overall Sample 5
+
+#For Row Names
+invisible(addSums(screeningData$TheLevelOfEducation,screeningData$StudyArm,education_level_2))
+
+education_level_2=education_level_2[c(5,3,1,2,4,6,7),]
+
+invisible(addPropTable(education_level_2,education_level_p_2))
+
+#
+invisible(addSums(screeningData$TheLevelOfEducation,screeningData$StudyArm,education_level))
+invisible(newaddPropTable(education_level,education_level_p))
+invisible(addN(education_level,education_level))
+
+#Merged
+merged_education = rbind(education_level_p,education_level)
+merged_education
+merged_education = merged_education[c(5,12,3,10,1,8,2,9,4,11,6,13,7,14),]
+colnames(merged_education)[6] ="Total"
+rowNames = c(as.character(education_level_p_2[1,"Sum"]),"",as.character(education_level_p_2[2,"Sum"])," ",as.character(education_level_p_2[3,"Sum"]),"  ",as.character(education_level_p_2[4,"Sum"]),"   ",as.character(education_level_p_2[5,"Sum"]),"    ",as.character(education_level_p_2[6,"Sum"]),"     ",as.character(education_level_p_2[7,"Sum"]),"      ")
+rownames(merged_education)=rowNames
+
+#Table
+merged_education = merged_education %>%
+  kable(escape = F, align = "c")%>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(c(1,7), bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(c(13,14), bold = T, italic = T) %>%
+  add_header_above(c("Study Arm" = 7), bold = TRUE, italic = TRUE) %>%
+  group_rows(index=c("Middle School"=2,"High School"=2,"2-Year College"=2,"4-Year College/University"=2,"Master's Program"=2,"PhD/MD Program"=2,"Total" = 2),label_row_css = "background-color: #F4EEEE;",bold = T)
+merged_education
+
+```
+
+## Level of Education: Caregivers
+```{r, echo=FALSE,message=FALSE}
+#Freq level of education 6
+invisible(addFreq(careGivers$TheLevelOfEducation,f_edu))
+
+f_edu=f_edu[c(5,3,1,2,4,6,7),]
+rowNames=c(""," ","  ","   ","    ","     ","      ")
+rownames(f_edu) = rowNames
+
+f_edu = f_edu %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(2, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(7, bold = T, italic = T)
+ 
+f_edu
+```
+```{r, echo=FALSE,message=FALSE}
+#Race: Overall Sample 7
+#addSum
+invisible(addSums(screeningData$RacialCategory1,screeningData$StudyArm, race))
+
+#I believe they have done some manual manipulation because genders are more detailed in the data set
+race["Pacific Islander or Native Hawaiian", ] = race["Pacific Islander or Native Hawaiian",] + race["Pacific Islander or Native Hawaiian|Asian",]
+race["Asian",] = race["Asian",] + race["White|Asian",]
+race = race[c(-4,-7),]
+
+# prop and N
+invisible(addPropTable(race,race_p))
+invisible(addN(race,race))
+
+#Merged
+race_merged = rbind(race_p,race)
+race_merged= race_merged[c(1,7,2,8,3,9,4,10,5,11,6,12),]
+colnames(race_merged)[6] ="Total"
+rowNames = c(""," ","  ","   ","    ","     ","      ","       ","        ","         ","          ","           ")
+rownames(race_merged)=rowNames
+#Table
+
+race_merged = race_merged%>%
+  kable(escape = F, align = "c", caption = "Race: Overall Sample")%>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(c(1,7), bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(c(11,12), bold = T, italic = T) %>%
+  add_header_above(c("Study Arm" = 7), bold = TRUE, italic = TRUE) %>%
+  group_rows(index=c("Asian"=2,"Black or African American"=2,"Pasific Islander"=2,"White"=2,"White|American Indian"=2,"Total"=2),label_row_css = "background-color: #F4EEEE;",bold = T)
+```
+
+## Smoking History: Caregivers vs. Non-Caregivers
+```{r, echo=FALSE,message=FALSE}
+#Smoking History: 8
+
+invisible(addSums(screeningData$CSICurrentlyProvideCare1,screeningData$SmokeHistory,smoking))
+invisible(addPropTable_orderless(smoking,smoking_p))
+invisible(addN_orderless(smoking,smoking))
+
+#Merged
+smoking_merged = rbind(smoking_p,smoking)
+smoking_merged= smoking_merged[c(2,5,1,4,3,6),]
+colnames(smoking_merged)[5] ="Total"
+#Create new column
+`Currently Providing Care` = c("Yes","Yes","No","No","Total","Total")
+smoking_merged = cbind(`Currently Providing Care`,smoking_merged)
+rownames(smoking_merged)=NULL
+#Table
+smoking_merged = smoking_merged%>%
+  kable(escape = F, align = "c")%>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(c(1,6), bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(c(5,6), bold = T, italic = T) %>%
+  add_header_above(c("Smoke History" = 6), bold = TRUE, italic = TRUE) %>%
+  collapse_rows(columns = 1)
+smoking_merged
+```
+
+## Alcohol Consumption: Caregivers vs. Non-Caregivers
+```{r, echo=FALSE,message=FALSE}
+#Alcohol Consumption 9
+invisible(addSums(screeningData$CSICurrentlyProvideCare1,screeningData$NUTRIAlcohol,alcohol))
+invisible(addPropTable_orderless(alcohol,alcohol_p))
+invisible(addN_orderless(alcohol,alcohol))
+
+#Merged
+alcohol_merged = rbind(alcohol_p,alcohol)
+alcohol_merged= alcohol_merged[c(2,5,1,4,3,6),]
+colnames(alcohol_merged)[5] ="Total"
+
+#Creating new column
+alcohol_merged = cbind(`Currently Providing Care`,alcohol_merged)
+alcohol_merged= alcohol_merged[,c(1,3,4,5,2,6)]
+rownames(alcohol_merged)=NULL
+
+#Table
+alcohol_merged = alcohol_merged%>%
+  kable(escape = F, align = "c")%>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(c(1,6), bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(c(5,6), bold = T, italic = T) %>%
+  add_header_above(c("How frequenly Alcohol Consumed" = 6), bold = TRUE, italic = TRUE) %>%
+  collapse_rows(columns = 1)
+alcohol_merged
+
+```
+
+## MMSE * Age Range: Overall Sample
+```{r, echo=FALSE,message=FALSE}
+#MSSE*Age Range 10
+invisible(addSums(screeningData$group,screeningData$mmseScoreRange,mmse))
+invisible(addPropTable_orderless(mmse,mmse_p))
+invisible(addN_orderless(mmse,mmse))
+
+#Merged
+mmse_merged = rbind(mmse_p,mmse)
+mmse_merged= mmse_merged[c(1,5,2,6,3,7,4,8),]
+colnames(mmse_merged) =c("<20","20-25","26+","Total")
+rowNames = c(""," ","  ","   ","    ","     ","      ","       ")
+rownames(mmse_merged)=rowNames
+
+#Table
+mmse_merged = mmse_merged%>%
+  kable(escape = F, align = "c")%>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(c(1,5), bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(c(7,8), bold = T, italic = T) %>%
+  add_header_above(c("MSSE Score" = 5), bold = TRUE, italic = TRUE) %>%
+  group_rows(index=c("50-64"=2,"65-74"=2,"75-84"=2,"Total"=2),label_row_css = "background-color: #F4EEEE;",bold = T)
+mmse_merged
+
+```
+
+## MMSE * Age Range: Caregivers
+```{r, echo=FALSE,message=FALSE}
+#MMSE * Age Range: Caregivers 11
+mmse_data = screeningData %>%
+  select(StudyArm,CSICurrentlyProvideCare1,group,mmseScoreRange) %>%
+  filter(CSICurrentlyProvideCare1 == "Yes")
+
+#
+invisible(addSums(mmse_data$group,mmse_data$mmseScoreRange,mmse_care))
+invisible(addPropTable_care_or(mmse_care,mmse_care_p))
+invisible(addN_orderless(mmse_care,mmse_care))
+
+#
+mmse_care_merged = rbind(mmse_care_p,mmse_care)
+mmse_care_merged= mmse_care_merged[c(1,5,2,6,3,7,4,8),]
+colnames(mmse_care_merged) =c("<20","20-25","26+","Total")
+rowNames = c(""," ","  ","   ","    ","     ","      ","       ")
+rownames(mmse_care_merged)=rowNames
+
+#
+mmse_care_merged = mmse_care_merged%>%
+  kable(escape = F, align = "c")%>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(c(1,5), bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(c(7,8), bold = T, italic = T) %>%
+  add_header_above(c("MSSE Score" = 5), bold = TRUE, italic = TRUE) %>%
+  group_rows(index=c("50-64"=2,"65-74"=2,"75-84"=2,"Total"=2),label_row_css = "background-color: #F4EEEE;",bold = T)
+mmse_care_merged
+
+```
+
+## BDI * Age Range: Overall Sample
+```{r, echo=FALSE,message=FALSE}
+#BDI * Age Range: Overall 12
+invisible(addSums(screeningData$group,screeningData$bdiScoreRange,bdi))
+invisible(addPropTable_orderless(bdi,bdi_p))
+invisible(addN_orderless(bdi,bdi))
+#
+bdi_merged = rbind(bdi_p,bdi)
+bdi_merged= bdi_merged[c(1,5,2,6,3,7,4,8),]
+colnames(bdi_merged) =c("0","1-10","11-16","17-20","21-30","Total")
+rowNames = c(""," ","  ","   ","    ","     ","      ","       ")
+rownames(bdi_merged)=rowNames
+#
+bdi_merged = bdi_merged%>%
+  kable(escape = F, align = "c")%>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  footnote(number = c("0-10: These ups and downs are considered normal","11-16: Mild mood disturbance","17-20: Borderline clinical depression"),general="", general_title = "BDI Scoring Guidelines",
+title_format = c("italic", "underline")) %>%
+  column_spec(c(1,7), bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(c(7,8), bold = T, italic = T) %>%
+  add_header_above(c("BDI Score" = 7), bold = TRUE, italic = TRUE) %>%
+  group_rows(index=c("50-64"=2,"65-74"=2,"75-84"=2,"Total"=2),label_row_css = "background-color: #F4EEEE;",bold = T)
+bdi_merged
+
+```
+
+## BDI * Age Range: Caregivers
+```{r, echo=FALSE,message=FALSE}
+#BDI * Age Range: Caregivers 13
+bdi_data = screeningData %>%
+  select(StudyArm,CSICurrentlyProvideCare1,group,bdiScoreRange) %>%
+  filter(CSICurrentlyProvideCare1 == "Yes")
+#
+invisible(addSums(bdi_data$group,bdi_data$bdiScoreRange,bdi_care))
+invisible(addPropTable_care_or(bdi_care,bdi_care_p))
+invisible(addN_orderless(bdi_care,bdi_care))
+
+#
+bdi_care_merged = rbind(bdi_care_p,bdi_care)
+bdi_care_merged= bdi_care_merged[c(1,5,2,6,3,7,4,8),]
+colnames(bdi_care_merged) =c("0","1-10","11-16","17-20","21-30","Total")
+rowNames = c(""," ","  ","   ","    ","     ","      ","       ")
+rownames(bdi_care_merged)=rowNames
+#
+bdi_care_merged = bdi_care_merged%>%
+  kable(escape = F, align = "c")%>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  footnote(number = c("0-10: These ups and downs are considered normal","11-16: Mild mood disturbance","17-20: Borderline clinical depression"),general="", general_title = "BDI Scoring Guidelines",
+title_format = c("italic", "underline")) %>%
+  column_spec(c(1,7), bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(c(7,8), bold = T, italic = T) %>%
+  add_header_above(c("BDI Score" = 7), bold = TRUE, italic = TRUE) %>%
+  group_rows(index=c("50-64"=2,"65-74"=2,"75-84"=2,"Total"=2),label_row_css = "background-color: #F4EEEE;",bold = T) 
+  
+bdi_care_merged
+```
+
+## BMI: Overall Sample
+```{r, echo=FALSE,message=FALSE}
+#BMI: Overall Sample 14
+invisible(addSums(screeningData$StudyArm,screeningData$BMIclassification,bmi))
+invisible(addPropTable_orderless(bmi,bmi_p))
+invisible(addN_orderless(bmi,bmi))
+
+#
+bmi_merged = rbind(bmi_p,bmi)
+colnames(bmi_merged)=c("Underweight","Normal","Overweight","Obese","Total")
+bmi_merged= bmi_merged[c(1,7,2,8,3,9,4,10,5,11,6,12),]
+rowNames = c(""," ","  ","   ","    ","     ","      ","       ","        ","         ","          ","           ")
+rownames(bmi_merged)=rowNames
+
+bmi_merged = bmi_merged%>%
+  kable(escape = F, align = "c")%>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(c(1,6), bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(c(11,12), bold = T, italic = T) %>%
+  add_header_above(c("BMI Score" = 6), bold = TRUE, italic = TRUE) %>%
+  group_rows(index=c("General bin"=2,"Healthy"=2,"Early Alzheimer's"=2,"Depression"=2,"MCI"=2,"Total"=2),label_row_css = "background-color: #F4EEEE;",bold = T)
+bmi_merged
+```
+
+## BMI: Caregivers
+```{r, echo=FALSE,message=FALSE}
+#BMI: Caregivers 15
+bmi_data = screeningData %>%
+  select(StudyArm,CSICurrentlyProvideCare1,group,BMIclassification) %>%
+  filter(CSICurrentlyProvideCare1 == "Yes")
+invisible(addSums(bmi_data$StudyArm,bmi_data$BMIclassification,bmi_care))
+invisible(addPropTable_care_or(bmi_care,bmi_care_p))
+invisible(addN_orderless(bmi_care,bmi_care))
+
+
+#
+bmi_care_merged = rbind(bmi_care_p,bmi_care)
+
+bmi_care_merged= bmi_care_merged[c(3,7,1,5,2,6,4,8),]
+colnames(bmi_care_merged)=c("Underweight","Normal","Overweight","Obese","Total")
+rowNames = c(""," ","  ","   ","    ","     ","      ","       ")
+rownames(bmi_care_merged)=rowNames
+#
+bmi_care_merged = bmi_care_merged%>%
+  kable(escape = F, align = "c")%>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(c(1,6), bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(c(7,8), bold = T, italic = T) %>%
+  add_header_above(c("BMI Chart" = 6), bold = TRUE, italic = TRUE) %>%
+  group_rows(index=c("Healthy"=2,"Depression"=2,"General"=2,"Total"=2),label_row_css = "background-color: #F4EEEE;",bold = T)
+bmi_care_merged
+
+```
+
+## BMI * Age Group: Caregivers
+```{r, echo=FALSE,message=FALSE}
+#BMI * Age Group: Caregivers 16
+invisible(addSums(bmi_data$group,bmi_data$BMIclassification,bmi_ageG))
+invisible(addPropTable_care_or(bmi_ageG,bmi_ageG_p))
+invisible(addN_orderless(bmi_ageG,bmi_ageG))
+
+#
+bmi_ageG_merged = rbind(bmi_ageG_p,bmi_ageG)
+bmi_ageG_merged= bmi_ageG_merged[c(1,5,2,6,3,7,4,8),]
+colnames(bmi_ageG_merged) = c("Underweight","Normal","Overweight","Obese","Total")
+rowNames = c(""," ","  ","   ","    ","     ","      ","       ")
+rownames(bmi_ageG_merged)=rowNames
+
+#
+bmi_ageG_merged = bmi_ageG_merged%>%
+  kable(escape = F, align = "c")%>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(c(1,6), bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(c(7,8), bold = T, italic = T) %>%
+  add_header_above(c("BMI chart" = 6), bold = TRUE, italic = TRUE) %>%
+  group_rows(index=c("50-64"=2,"65-74"=2,"75-84"=2,"Total"=2),label_row_css = "background-color: #F4EEEE;",bold = T)
+bmi_ageG_merged
+
+```
+
+## MoCA Scores - Overall
+```{r, echo=FALSE,message=FALSE}
+#MoCA Scores-Overall 17
+MoCa = filter(screeningData,MOCAclassification != -2) #-2 means THEY SCORE 0
+
+invisible(addSums(MoCa$MOCAclassification,MoCa$StudyArm,moca))
+
+invisible(addPropTable(moca,moca_p))
+invisible(addN(moca,moca))
+A = MoCa %>%
+  select(MOCAclassification,StudyArm)
+
+#
+
+moca_merged = rbind(moca_p,moca)
+colnames(moca_merged)[6]="Total"
+moca_merged= moca_merged[c(1,5,2,6,3,7,4,8),] #Re order
+rowNames = c(" ","  ","   ","    ","     ","      ","       ","        ")
+rownames(moca_merged)=rowNames
+
+#
+moca_merged = moca_merged %>%
+  kable(escape = F, align = "c")%>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(c(1,7), bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(c(7,8), bold = T, italic = T) %>%
+  add_header_above(c("Study Arm" = 7), bold = TRUE, italic = TRUE) %>%
+  group_rows(index=c("Normal (26+)"=2,"Cognitive Impairment (21-25)"=2,"Severe Cognitive Impairment (<20)"=2,"Total"=2),label_row_css = "background-color: #F4EEEE;",bold = T)
+moca_merged
+```
+
+## HAM-D Scores - Overall
+```{r, echo=FALSE,message=FALSE}
+#HAM-D Scores-Overall 18
+
+invisible(addSums(screeningData$HAMDclassification,screeningData$StudyArm,hamd))
+invisible(addPropTable_orderless(hamd,hamd_p))
+invisible(addN_orderless(hamd,hamd))
+
+#
+hamd_merged = rbind(hamd_p,hamd)
+colnames(hamd_merged)[6]="Total"
+hamd_merged= hamd_merged[c(1,6,2,7,3,8,4,9,5,10),]
+hamd_merged =hamd_merged [,c(4,2,1,5,3,6)]
+rowNames = c(""," ","  ","   ","    ","     ","      ","       ","        ","         ")
+rownames(hamd_merged)=rowNames
+
+#
+hamd_merged = hamd_merged %>%
+  kable(escape = F, align = "c")%>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+   footnote(number = c("0-7: Normal","8-13: Mild Depression","14-18: Moderate Depression","19-22: Severe Depression"),general="", general_title = "HAM-D Scoring Guideline",
+title_format = c("italic", "underline")) %>%
+  column_spec(c(1,7), bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(c(9,10), bold = T, italic = T) %>%
+  add_header_above(c("Study Arm" = 7), bold = TRUE, italic = TRUE) %>%
+  group_rows(index=c("Normal (0-7)"=2,"Mild Depression (8-13)"=2,"Moderate Depression (14-18)"=2,"Very Severe Depression (>18)"=2,"Total"=2),label_row_css = "background-color: #F4EEEE;",bold = T)
+hamd_merged
+
+```
+
+## HAM-D Scores - Caregiver
+```{r, echo=FALSE,message=FALSE}
+#HAM-D Scores - Caregiver 19
+hamd_data = screeningData %>%
+  select(StudyArm,CSICurrentlyProvideCare1,group,HAMDclassification) %>%
+  filter(CSICurrentlyProvideCare1 == "Yes")
+invisible(addSums(hamd_data$HAMDclassification,hamd_data$StudyArm,hamd_care))
+invisible(addPropTable_care_or(hamd_care,hamd_care_p))
+invisible(addN_orderless(hamd_care,hamd_care))
+
+#
+hamd_care_merged = rbind(hamd_care_p,hamd_care)
+hamd_care_merged= hamd_care_merged[c(1,5,2,6,3,7,4,8),c(3,1,2,4)]
+colnames(hamd_care_merged)[4]="Total"
+rowNames = c(" ","  ","   ","    ","     ","      ","       ","        ")
+rownames(hamd_care_merged)=rowNames
+
+#
+hamd_care_merged = hamd_care_merged %>%
+  kable(escape = F, align = "c")%>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+     footnote(number = c("0-7: Normal","8-13: Mild Depression","14-18: Moderate Depression","19-22: Severe Depression"),general="", general_title = "HAM-D Scoring Guideline",
+title_format = c("italic", "underline")) %>%
+  column_spec(c(1,5), bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(c(7,8), bold = T, italic = T) %>%
+  add_header_above(c("Study Arm" = 5), bold = TRUE, italic = TRUE) %>%
+  group_rows(index=c("Normal (0-7)"=2,"Mild Depression (8-13)"=2,"Moderate Depression (14-18)"=2,"Total"=2),label_row_css = "background-color: #F4EEEE;",bold = T)
+hamd_care_merged
+
+```
+
+## DASS Depression Scores - Overall
+```{r, echo=FALSE,message=FALSE}
+#DASS Depression Scores - Overall 20
+invisible(addSums(screeningData$DASSclassification,screeningData$StudyArm,dass))
+invisible(addPropTable_orderless(dass,dass_p))
+invisible(addN_orderless(dass,dass))
+
+#
+dass_merged = rbind(dass_p,dass)
+colnames(dass_merged)[6]="Total"
+dass_merged = dass_merged[c(1,6,2,7,3,8,4,9,5,10),]
+dass_merged = dass_merged [,c(4,2,1,5,3,6)]
+rowNames = c(""," ","  ","   ","    ","     ","      ","       ","        ","         ")
+rownames(dass_merged)=rowNames
+
+#
+dass_merged = dass_merged %>%
+  kable(escape = F, align = "c")%>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+   footnote(number = c("0-4: Normal","5-6: Mild Depression","1-7: Moderate Depression","11-13: Severe Depression"),general="", general_title = "Dass 21 Scoring Guidelines - Depression",
+title_format = c("italic", "underline")) %>%
+  column_spec(c(1,7), bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(c(9,10), bold = T, italic = T) %>%
+  add_header_above(c("Study Arm" = 7), bold = TRUE, italic = TRUE) %>%
+  group_rows(index=c("Normal (0-4)"=2,"Mild (5-6)"=2,"Moderate (7-10)"=2,"Severe (11-13)"=2,"Total"=2),label_row_css = "background-color: #F4EEEE;",bold = T)
+dass_merged
+
+
+```
+
+## HAM-D Scores - Caregiver
+```{r, echo=FALSE,message=FALSE}
+#DASS Depression Scores - Caregivers 21
+dass_data = screeningData %>%
+  select(StudyArm,CSICurrentlyProvideCare1,group,DASSclassification,DASSclassification_A,DASSclassification_S) %>%
+  filter(CSICurrentlyProvideCare1 == "Yes") #Should I add avoid upper or lower case
+
+#
+invisible(addSums(dass_data$DASSclassification,dass_data$StudyArm,dass_care))
+invisible(addPropTable_care_or(dass_care,dass_care_p))
+invisible(addN_orderless(dass_care,dass_care))
+
+#
+dass_care_merged = rbind(dass_care_p,dass_care)
+dass_care_merged= dass_care_merged[c(1,6,2,7,3,8,4,9,5,10),c(3,1,2,4)]
+colnames(dass_care_merged)[4]="Total"
+rowNames = c(""," ","  ","   ","    ","     ","      ","       ","        ","         ")
+rownames(dass_care_merged)=rowNames
+
+
+#
+dass_care_merged = dass_care_merged %>%
+  kable(escape = F, align = "c")%>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+     footnote(number = c("0-4: Normal","5-6: Mild Depression","1-7: Moderate Depression","11-13: Severe Depression"),general="", general_title = "Dass 21 Scoring Guidelines - Depression",
+title_format = c("italic", "underline")) %>%
+  column_spec(c(1,5), bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(c(9,10), bold = T, italic = T) %>%
+  add_header_above(c("Study Arm" = 5), bold = TRUE, italic = TRUE) %>%
+  group_rows(index=c("Normal (0-4)"=2,"Mild (5-6)"=2,"Moderate (7-10)"=2,"Severe (11-13)"=2,"Total"=2),label_row_css = "background-color: #F4EEEE;",bold = T)
+
+dass_care_merged
+
+
+```
+
+## DASS Anxiety Scores - Overall
+```{r, echo=FALSE,message=FALSE}
+#DASS Anxiety Scores - Overall 22
+invisible(addSums(screeningData$DASSclassification_A, screeningData$StudyArm,dass_anxiety))
+invisible(addPropTable_orderless(dass_anxiety,dass_anxiety_p))
+invisible(addN_orderless(dass_anxiety,dass_anxiety))
+
+#
+dass_anxiety_merged = rbind(dass_anxiety_p,dass_anxiety)
+colnames(dass_anxiety_merged)[6]="Total"
+dass_anxiety_merged= dass_anxiety_merged[c(1,7,2,8,3,9,4,10,5,11,6,12),c(4,2,1,5,3,6)]
+rowNames = c(""," ","  ","   ","    ","     ","      ","       ","        ","         ","          ","           ")
+rownames(dass_anxiety_merged)=rowNames
+
+#
+dass_anxiety_merged = dass_anxiety_merged %>%
+  kable(escape = F, align = "c")%>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  footnote(number = c("0-3: Normal","4-5: Mild","6-7: Moderate","8-9: Severe","+10 Extremely severe"),general="", general_title = "Dass 21 Scoring Guidelines - Anxiety",
+title_format = c("italic", "underline")) %>%
+  column_spec(c(1,7), bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(c(11,12), bold = T, italic = T) %>%
+  add_header_above(c("Study Arm" = 7), bold = TRUE, italic = TRUE) %>%
+  group_rows(index=c("Normal (0-3)"=2,"Mild (4-5)"=2,"Moderate (6-7)"=2,"Severe (8-9)"=2,"Extremely Severe (10+)"=2,"Total"=2),label_row_css = "background-color: #F4EEEE;",bold = T)
+dass_anxiety_merged
+```
+## DASS Anxiety Scores - Caregivers
+```{r, echo=FALSE,message=FALSE}
+#DASS 21 Anxiety Scores - CAREGIVERS 23
+invisible(addSums(dass_data$DASSclassification_A,dass_data$StudyArm,d_care_anxiety))
+invisible(addPropTable_care_or(d_care_anxiety,d_care_anxiety_p))
+invisible(addN_orderless(d_care_anxiety,d_care_anxiety))
+
+#
+d_care_anxiety_merged = rbind(d_care_anxiety_p,d_care_anxiety)
+colnames(d_care_anxiety_merged)[4]="Total"
+d_care_anxiety_merged= d_care_anxiety_merged[c(1,5,2,6,3,7,4,8),c(3,1,2,4)]
+rowNames = c(" ","  ","   ","    ","     ","      ","       ","        ")
+rownames(d_care_anxiety_merged)=rowNames
+
+#moca_merged= moca_merged[c(1,5,2,6,3,7,4,8),]
+d_care_anxiety_merged = d_care_anxiety_merged %>%
+  kable(escape = F, align = "c")%>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  footnote(number = c("0-3: Normal","4-5: Mild","6-7: Moderate","8-9: Severe","10+: Extremely severe"),general="", general_title = "Dass 21 Scoring Guidelines - Anxiety",
+title_format = c("italic", "underline")) %>%
+  column_spec(c(1,5), bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(c(7,8), bold = T, italic = T) %>%
+  add_header_above(c("Study Arm" = ncol(d_care_anxiety_merged) + 1 
+), bold = TRUE, italic = TRUE) %>%
+  group_rows(index=c("Normal (0-3)"=2,"Mild (4-5)"=2,"Extremely Severe (10+)"=2,"Total"=2),label_row_css = "background-color: #F4EEEE;",bold = T)
+d_care_anxiety_merged
+
+```
+
+## DASS Stress Scores - Overall
+```{r, echo=FALSE,message=FALSE}
+#DASS Stress Scores - Overall 24
+invisible(addSums(screeningData$DASSclassification_S,screeningData$StudyArm,dass_stress))
+invisible(addPropTable_orderless(dass_stress,dass_stress_p))
+invisible(addN_orderless(dass_stress,dass_stress))
+
+#
+dass_stress_merged = rbind(dass_stress_p,dass_stress)
+colnames(dass_stress_merged)[6]="Total"
+dass_stress_merged= dass_stress_merged[c(1,6,2,7,3,8,4,9,5,10),c(4,2,1,5,3,6)]
+rowNames = c(""," ","  ","   ","    ","     ","      ","       ","        ","         ")
+rownames(dass_stress_merged)=rowNames
+
+
+#
+dass_stress_merged = dass_stress_merged %>%
+  kable(escape = F, align = "c")%>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  footnote(number = c("0-7: Normal","8-9: Mild","10-12: Moderate","13-16: Severe"),general="", general_title = "Dass 21 Scoring Guidelines - Stress",
+title_format = c("italic", "underline")) %>%
+  column_spec(c(1,7), bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(c(7,8), bold = T, italic = T) %>%
+  add_header_above(c("Study Arm" = ncol(dass_stress_merged) + 1 
+), bold = TRUE, italic = TRUE) %>%
+  group_rows(index=c("Normal (0-7)"=2,"Mild (8-9)"=2,"Moderate (10-12)"=2,"Severe (13-16)"=2,"Total"=2),label_row_css = "background-color: #F4EEEE;",bold = T)
+dass_stress_merged
+
+```
+
+## DASS Stress Scores - Caregivers
+```{r, echo=FALSE,message=FALSE}
+#DASS Stress Scores - Caregivers 25
+invisible(addSums(dass_data$DASSclassification_S,dass_data$StudyArm,d_care_stress))
+invisible(addPropTable_care_or(d_care_stress,d_care_stress_p))
+invisible(addN_orderless(d_care_stress,d_care_stress))
+
+#
+d_care_stress_merged = rbind(d_care_stress_p,d_care_stress)
+colnames(d_care_stress_merged)[4]="Total"
+d_care_stress_merged= d_care_stress_merged[c(1,5,2,6,3,7,4,8),c(3,1,2,4)]
+rowNames = c(" ","  ","   ","    ","     ","      ","       ","        ")
+rownames(d_care_stress_merged)=rowNames
+
+#
+d_care_stress_merged = d_care_stress_merged %>%
+  kable(escape = F, align = "c")%>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+   footnote(number = c("0-7: Normal","8-9: Mild","10-12: Moderate","13-16: Severe"),general="", general_title = "Dass 21 Scoring Guidelines - Stress",
+title_format = c("italic", "underline")) %>%
+  column_spec(c(1,5), bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(c(7,8), bold = T, italic = T) %>%
+  add_header_above(c("Study Arm" = ncol(d_care_stress_merged) + 1 
+), bold = TRUE, italic = TRUE) %>%
+  group_rows(index=c("Normal (0-7)"=2,"Mild (8-9)"=2,"Severe (10-12)"=2,"Total"=2),label_row_css = "background-color: #F4EEEE;",bold = T)
+d_care_stress_merged
+```
+
+## Community Health Activities Model Program for Seniors (CHAMPS) Questionnaire
+```{r, echo=FALSE,message=FALSE}
+#Champs
+#Select Champs data for count
+champsData = screeningData %>%
+  select(starts_with("CHAMPS")) %>%
+  select(ends_with("1"))
+
+champsData_freq=select(champsData,-contains("Hours"))  
+
+champsData_freq = champsData_freq[,-ncol(champsData_freq)] #PhyActivity is not included in the table?
+
+#Count # of Yes and create prop table
+yesses = sapply(champsData_freq,FUN = function(x){length(x[x=="Yes"])})
+invisible(addPropTable_orderless(yesses,propChamps))
+
+#Count # of No and create prop table
+noes = sapply(champsData_freq,FUN = function(x){length(x[x=="No"])})
+invisible(addPropTable_orderless(noes,propChamps2))
+
+#Bind yes and no and and (N=)
+yes_no = cbind(yesses,noes)
+invisible(addN_orderless(yes_no,yes_no))
+colnames(yes_no)=c("Yes","No")
+prop_tabless = cbind(propChamps,propChamps2)
+colnames(prop_tabless)=c("Yes","No")
+yes_no =rbind(prop_tabless,yes_no)
+
+#Order rows. I need to find another way
+rowOrderChamps =c(1,41,2,42,3,43,4,44,5,45,6,46,7,47,8,48,9,49,10,50,11,51,12,52,13,53,14,55,15,55,16,56,17,57,18,58,19,59,20,60,21,61,22,62,23,63,24,64,25,65,26,66,27,67,28,68,29,69,30,70,31,71,32,72,33,73,34,74,35,75,36,76,37,77,38,78,39,79,40,80)
+yes_no=yes_no[rowOrderChamps,]
+
+#Create columns for activity names
+Activity = c("Visit Friends","Visit Friends","Senior Center","Senior Center","Volunteer","Volunteer","Church","Church","Club Meeting","Club Meeting","Use Computer","Use Computer","Dance","Dance","Arts & Crafts","Arts & Crafts","Golf Walk","Golf Walk","Golf Ride","Golf Ride","Concert/Lecture","Concert/Lecture","Board Games","Board Games","Billiards","Billiards","Singles Tennis","Singles Tennis","Doubles Tennis","Doubles Tennis","Skate","Skate","Play Instrument","Play Instrument","Read","Read","Heavy HouseWork","Heavy HouseWork","Light HouseWork","Light HouseWork","Heavy Gardening","Heavy Gardening","Light Gardening","Light Gardening","Machine Work","Machine Work","Jog/Run","Jog/Run","Walk Uphill","Walk Uphill","Walk Fast","Walk Fast","Walk for Errands","Walk for Errands","Walk Leisurely","Walk Leisurely","Ride Bike","Ride Bike","Aerobic Machines","Aerobic Machines","Water Exercise","Water Exercise","Swim Fast","Swim Fast","Swim Gently","Swim Gently","Stretch","Stretch","Yoga","Yoga",'Aerobics','Aerobics','Heavy Weights','Heavy Weights','Light Weights','Light Weights','General Conditioning','General Conditioning','Bask. Socc. Raquet','Bask. Socc. Raquet')
+yes_no= cbind(Activity,yes_no)
+row.names(yes_no)=NULL
+
+#Bind Time spent in this activities
+champsData_hr=select(champsData,contains("Hours"))
+champsData_hr = champsData_hr[,-ncol(champsData_hr)] #PhyActivity is not included in the table?
+
+##Counts
+#<1
+lessAnHour = sapply(champsData_hr,FUN = function(x){length(x[x=="Less than 1 Hour"])})
+invisible(addPropTable_orderless(lessAnHour,prop1))
+#1-2.5
+oneAnd2 = sapply(champsData_hr,FUN = function(x){length(x[x=="1- 2.5 Hours"])})
+invisible(addPropTable_orderless(oneAnd2,prop2))
+#3-4.5
+threeAnd4 = sapply(champsData_hr,FUN = function(x){length(x[x=="3- 4.5 Hours"])})
+invisible(addPropTable_orderless(threeAnd4,prop3))
+#5- 6.5
+fiveAnd6 = sapply(champsData_hr,FUN = function(x){length(x[x=="5- 6.5 Hours"])})
+invisible(addPropTable_orderless(fiveAnd6,prop4))
+#7-8.5
+sevenAnd8 = sapply(champsData_hr,FUN = function(x){length(x[x=="7- 8.5 Hours"])})
+invisible(addPropTable_orderless(sevenAnd8,prop5))
+#9 and more
+nine = sapply(champsData_hr,FUN = function(x){length(x[x=="9 or More Hours"])})
+invisible(addPropTable_orderless(nine,prop6))
+
+#Bind hours
+hoursSpent = cbind(lessAnHour,oneAnd2,threeAnd4,fiveAnd6,sevenAnd8,nine)
+invisible(addN_orderless(hoursSpent,hoursSpent))
+colnames(hoursSpent)=c("<1","1-2.5","3-4.5","5-6.5","7-8.5","9+")
+prop_tabless2 = cbind(prop1,prop2,prop3,prop4,prop5,prop6)
+colnames(prop_tabless2)=c("<1","1-2.5","3-4.5","5-6.5","7-8.5","9+")
+hoursSpent=rbind(prop_tabless2,hoursSpent)
+#Order rows
+hoursSpent=hoursSpent[rowOrderChamps,]
+row.names(hoursSpent)=NULL
+#Bind hours spent with yes_no
+binded_Champs=cbind(yes_no,hoursSpent)
+
+#Table
+binded_Champs = binded_Champs %>%
+  kable(escape = F, align = "c")%>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(c(1), bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  add_header_above(c("Participate in this activity" = 3,"Time Spent Per Week in This Activity (Hours)"=6), bold = TRUE, italic = TRUE) %>%
+  collapse_rows(columns = 1)
+binded_Champs
+```
+
+## Do you have Advanced Care Plans?
+```{r, echo=FALSE,message=FALSE}
+#Advance Care Plans (ACPs) 27 Do you have Advanced Care Plan
+screeningData$CSIAdvancedCare1[screeningData$CSIAdvancedCare1==""] = "No"
+
+invisible(addFreq(screeningData$CSIAdvancedCare1,ADC))
+ADC=ADC[-1,]
+rownames(ADC)=NULL
+
+#Table
+ADC = ADC %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(nrow(ADC), bold = T, italic = T)
+ADC
+
+```
+
+## Do PMP and Health Care Proxy Decision-Maker have up-to-date copies of the ACP?
+```{r, echo=FALSE,message=FALSE}
+#Do PMP an Health Care Proxy
+
+invisible(addFreq(screeningData$CSIUpdatedACP1,pmp_proxy))
+pmp_proxy=pmp_proxy[-1,]
+pmp_proxy=pmp_proxy[c(3,1,2,4),]
+rowNames=c(""," ","   ","    ")
+rownames(pmp_proxy) = rowNames
+
+pmp_proxy = pmp_proxy %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(2, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(4, bold = T, italic = T)
+pmp_proxy
+#26-0-165 has no info....
+#After this, add advance care plan proxy decision-maker/power of attorney
+```
+
+# Additionaly Caregiving Data (N =`r length(careGivers$StudyArm)` Self-Reported Caregivers)
+## General Demographics of Self-Reported Caregiving Population
+```{r, echo=FALSE,message=FALSE}
+#General Demographics of Self-Reported Caregiving Population
+#Delete the wrong data entry as it is defined in the report.
+wrong_entry = careGivers[careGivers$CSIProvidingCareHours!=350,]
+Mean=c(round(mean(careGivers$CSINumberOfPeople),2),round(mean(careGivers$ageAccurate),2),round(mean(wrong_entry$CSIProvidingCareHours
+),2),round(mean(careGivers$CSIProvidingCareYears
+),2))
+#STD
+`Std. Deviation` = c(round(sd(careGivers$CSINumberOfPeople),2),round(sd(careGivers$ageAccurate),2),round(sd(wrong_entry$CSIProvidingCareHours
+),2),round(sd(careGivers$CSIProvidingCareYears
+),2))
+
+#min
+Minimum =  c(round(min(careGivers$CSINumberOfPeople),2),round(min(careGivers$ageAccurate),2),round(min(wrong_entry$CSIProvidingCareHours
+),2),round(min(careGivers$CSIProvidingCareYears
+),2))
+
+Maximum = c(round(max(careGivers$CSINumberOfPeople),2),round(max(careGivers$ageAccurate),2),round(max(wrong_entry$CSIProvidingCareHours
+),2),round(max(careGivers$CSIProvidingCareYears
+),2))
+#Bind cols
+gen_demog = cbind(Mean,`Std. Deviation`,Minimum,Maximum)
+rownames(gen_demog)=NULL
+#Table
+gen_demog= gen_demog%>%
+  kable(escape = F, align = "c")%>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  group_rows(index=c("# of People Providing Care For"=1,"Age of Care Recipient"=1,"Caregiving Hours (weekly)"=1,"Years of Caregiving"=1),label_row_css = "background-color: #F4EEEE;",bold = T)
+gen_demog
+```
+
+## Caregiver-Recipient Relationship
+```{r, echo=FALSE,message=FALSE}
+#Caregiver-Recipient Relationship
+invisible(addFreq(careGivers$CSIRelatedToYou1,care_relation))
+care_relation=care_relation[-1,]
+rownames(care_relation) = NULL
+
+#Table
+care_relation = care_relation %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(15, bold = T, italic = T)
+care_relation
+
+```
+
+## Number of people providing care to
+```{r, echo=FALSE,message=FALSE}
+# # of People providing care to
+invisible(addFreq(careGivers$CSINumberOfPeople,numberCareprovided))
+
+numberCareprovided = numberCareprovided %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(5, bold = T, italic = T)
+numberCareprovided
+
+```
+
+```{r, echo=FALSE,message=FALSE}
+
+```
+
+## Are you providing care to multiple people?
+```{r, echo=FALSE,message=FALSE}
+#Are you providing care to multiple people?
+invisible(addFreq(careGivers$CSICareMultiplePeople1,mult_care))
+
+#
+mult_care=mult_care[-1,]
+mult_care=mult_care[c(2,1,3),]
+rownames(mult_care) = NULL
+#
+mult_care = mult_care %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(2, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(3, bold = T, italic = T)
+ 
+mult_care
+#
+```
+
+## Number of people providing care to
+```{r, echo=FALSE,message=FALSE}
+# # # of People providing care to
+# invisible(addFreq(careGivers$CSINumberOfPeople,numberCareprovided))
+# 
+# numberCareprovided = numberCareprovided %>%
+#   kable(escape = F, align = "c") %>%
+#   kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+#   column_spec(1, bold = T) %>%
+#   row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+#   row_spec(5, bold = T, italic = T)
+# numberCareprovided
+
+```
+
+## Do any of the people you care for have Alzheimer's disease or dementia?
+```{r, echo=FALSE,message=FALSE}
+#Do any of the people you care for have Alzheimer's disease or dementia
+invisible(addFreq(careGivers$CSISufferAlzheimers1,suffer_alz))
+
+suffer_alz=suffer_alz[-1,]
+suffer_alz=suffer_alz[c(2,1,3),]
+rownames(suffer_alz)=NULL
+
+suffer_alz = suffer_alz %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(2, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(3, bold = T, italic = T)
+suffer_alz
+
+```
+
+## Primary Health Problem of the Person Cared For
+```{r, echo=FALSE,message=FALSE}
+#Primary Health Problem of the person cared for
+invisible(addFreq(careGivers$CSIPrimaryHealthProblem1,primary_health))
+primary_health=primary_health[-1,]
+rownames(primary_health)=NULL
+
+#Table
+primary_health = primary_health %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(8, bold = T, italic = T)
+primary_health
+
+```
+
+## Does this person currently live with you?
+```{r, echo=FALSE,message=FALSE}
+#Does the person currently live with you?
+invisible(addFreq(careGivers$CSIProvideCareLive1,care_live))
+#
+care_live=care_live[-1,]
+care_live=care_live[c(2,1,3),]
+rownames(care_live)=NULL
+
+#Table
+care_live = care_live %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(2, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(3, bold = T, italic = T)
+care_live
+
+```
+
+## Are you the main or primary family member or friend who provides care for this person?
+```{r, echo=FALSE,message=FALSE}
+#Are you main family member
+invisible(addFreq(careGivers$CSIMainFamilyMember1,main_family))
+#
+main_family=main_family[-1,]
+main_family=main_family[c(2,1,3),]
+rownames(main_family)=NULL
+#Table
+main_family = main_family %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(2, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(3, bold = T, italic = T)
+main_family
+
+```
+
+## Level of Strain Caused
+```{r, echo=FALSE,message=FALSE}
+#Level of Strain Caused
+invisible(addFreq(careGivers$CSIStrain1,strain_level))
+strain_level=strain_level[-1,]
+strain_level=strain_level[c(1,3,2,4),]
+rownames(strain_level)=NULL
+
+#Table
+strain_level = strain_level %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(4, bold = T, italic = T)
+strain_level
+
+```
+
+# Care recipient sub-population analysis
+## Does a family member or friend accompany you to Doctor's office?
+```{r, echo=FALSE,message=FALSE}
+#Does a family member or friend accompany you...?
+invisible(addFreq(screeningData$CSIDoctorAppt1,accompany_doc))
+accompany_doc=accompany_doc[c(2,1,3),]
+rownames(accompany_doc)=NULL
+
+#Table
+accompany_doc = accompany_doc %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(3, bold = T, italic = T)
+accompany_doc
+
+```
+
+## Relation of the person accompanying Doctor's office
+```{r, echo=FALSE,message=FALSE}
+#Relation of the person accompanying Doctor's office
+doc = filter(screeningData,CSIDoctorApptPerson1 != "")
+invisible(addFreq(doc$CSIDoctorApptPerson1,relation_doc))
+relation_doc=relation_doc[-1,]
+rownames(relation_doc)=NULL
+#Table
+relation_doc = relation_doc %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(nrow(relation_doc), bold = T, italic = T)
+relation_doc
+
+```
+
+## Do you need help with any of daily activities (Bathing/Dressing, Getting in and out of bed or a chair, Transportation to Doctor's office, Taking your medications on time, Managing finances)?
+```{r, echo=FALSE,message=FALSE}
+#Do you need help with any of daily activities (Bathing/Dressing, Getting in and out of bed...)
+invisible(addFreq(screeningData$CSIActivityHelp1,activity_help))
+rownames(activity_help)=NULL
+
+#table
+activity_help = activity_help %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(nrow(activity_help), bold = T, italic = T)
+activity_help
+```
+
+## Relation of the caregiver with the recipient
+```{r, echo=FALSE,message=FALSE}
+#Relation of the caregiver with the recipient
+activity = filter(screeningData,CSIActivityHelpPerson1!="")
+invisible(addFreq(activity$CSIActivityHelpPerson1,activity_relation))
+activity_relation=activity_relation[-1,]
+rownames(activity_relation)=NULL
+
+#Table
+activity_relation = activity_relation %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(nrow(activity_relation), bold = T, italic = T)
+activity_relation
+
+```
+
+## Does the caregiver live with you?
+```{r, echo=FALSE,message=FALSE}
+#caregiver live with you
+activity_2 = filter(screeningData,CSIActivityHelpPersonLive1!="")
+invisible(addFreq(activity_2$CSIActivityHelpPersonLive1,activity_live))
+activity_live=activity_live[-1,]
+rownames(activity_live)=NULL
+
+#Table
+activity_live = activity_live %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(nrow(activity_live), bold = T, italic = T)
+activity_live
+```
+
+## Bathing or Dressing
+```{r, echo=FALSE,message=FALSE}
+#Bathing and Dressing
+screeningData$CSIBathingDressing1[screeningData$CSIBathingDressing1==""] = "No"
+invisible(addFreq(screeningData$CSIBathingDressing1,bath_dress))
+bath_dress=bath_dress[-1,]
+rownames(bath_dress)=NULL
+
+#Table
+bath_dress = bath_dress %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(nrow(bath_dress), bold = T, italic = T)
+bath_dress
+
+#Missing values need to be corrected? ask Mitch
+```
+
+## Getting in and out of bed or a chair
+```{r, echo=FALSE,message=FALSE}
+#Replace empty with No. Missing values
+screeningData$CSIOutofBed1[screeningData$CSIOutofBed1==""] = "No"
+invisible(addFreq(screeningData$CSIOutofBed1,outBed))
+outBed=outBed[-1,]
+rownames(outBed)=NULL
+
+#Table
+outBed = outBed %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(nrow(outBed), bold = T, italic = T)
+outBed
+```
+
+## Transportation to the doctor's office
+```{r, echo=FALSE,message=FALSE}
+#Transportation. Missing values
+screeningData$CSITransportation1[screeningData$CSITransportation1==""] = "No"
+
+invisible(addFreq(screeningData$CSITransportation1,trans))
+trans=trans[-1,]
+rownames(trans)=NULL
+
+#Table
+trans = trans %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(nrow(trans), bold = T, italic = T)
+trans
+```
+
+## Taking your medications on time
+```{r, echo=FALSE,message=FALSE}
+#Taking  your med on time. missing values
+screeningData$CSITakingMeds1[screeningData$CSITakingMeds1==""] = "No"
+
+invisible(addFreq(screeningData$CSITakingMeds1,med_time))
+med_time=med_time[-1,]
+rownames(med_time)=NULL
+
+#Table
+med_time = med_time %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(nrow(med_time), bold = T, italic = T)
+med_time
+```
+
+## Managing your money or finances
+```{r, echo=FALSE,message=FALSE}
+#Managing your money or finances
+screeningData$CSIManagingFinances1[screeningData$CSIManagingFinances1==""] = "No"
+invisible(addFreq(screeningData$CSIManagingFinances1,manage_money))
+manage_money=manage_money[-1,]
+rownames(manage_money)=NULL
+
+#Table
+manage_money = manage_money %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(nrow(manage_money), bold = T, italic = T)
+manage_money
+```
+
+## If you had a serious illness or became disabled in the future, do you have a family member or friend available to provide care on an ongoing basis
+```{r, echo=FALSE,message=FALSE}
+#If you had a serious illness or became disabled in the future.
+screeningData$CSICareIfDisabledPerson1=as.character(screeningData$CSICareIfDisabledPerson1)
+invisible(addFreq(screeningData$CSISeriousIllnessHelp1,s_help))
+rownames(s_help)=NULL
+#Table
+s_help = s_help %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(nrow(s_help), bold = T, italic = T)
+s_help
+```
+
+## Relationship of this person with the participant
+```{r, echo=FALSE,message=FALSE,warning=FALSE}
+#Relationship of this person with the participant
+#Factor to char
+screeningData$CSICareIfDisabledPerson1=as.character(screeningData$CSICareIfDisabledPerson1)
+
+screeningData$CSICareIfDisabledPerson1[screeningData$CSICareIfDisabledPerson1==""]="Not Applicable"
+
+screeningData$CSICareIfDisabledPerson1[screeningData$CSICareIfDisabledPerson1=="Sister"] = "Siblings"
+screeningData$CSICareIfDisabledPerson1[screeningData$CSICareIfDisabledPerson1=="Brother"] = "Siblings"
+screeningData$CSICareIfDisabledPerson1[screeningData$CSICareIfDisabledPerson1=="Son"] = "Children"
+screeningData$CSICareIfDisabledPerson1[screeningData$CSICareIfDisabledPerson1=="Daughter"] = "Children"
+screeningData$CSICareIfDisabledPerson1[screeningData$CSICareIfDisabledPerson1=="Spouse|Son"] = "Spouse and Children"
+screeningData$CSICareIfDisabledPerson1[screeningData$CSICareIfDisabledPerson1=="Spouse|Daughter"] = "Spouse and Children"
+screeningData$CSICareIfDisabledPerson1[screeningData$CSICareIfDisabledPerson1=="Spouse|Sister"] = "Spouse and Siblings"
+screeningData$CSICareIfDisabledPerson1[screeningData$CSICareIfDisabledPerson1=="Spouse|Brother"] = "Spouse and Siblings"
+
+#Arrange
+invisible(addFreq(screeningData$CSICareIfDisabledPerson1,disabled_help))
+disabled_help=disabled_help[,-4]
+rownames(disabled_help)=NULL
+
+
+#Table
+disabled_help = disabled_help %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC")%>%
+  row_spec(nrow(disabled_help), bold = T, italic = T)
+disabled_help
+
+```
+
+## Does this person live with you?
+```{r, echo=FALSE,message=FALSE}
+screeningData$CSICareIfDisabledPersonLive1=as.character(screeningData$CSICareIfDisabledPersonLive1)
+
+screeningData$CSICareIfDisabledPersonLive1[screeningData$CSICareIfDisabledPersonLive1==""] = "Not Applicable"
+
+invisible(addFreq(screeningData$CSICareIfDisabledPersonLive1,disabled_live))
+rownames(disabled_live)=NULL
+
+#Table
+disabled_live = disabled_live %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(nrow(disabled_live), bold = T, italic = T)
+disabled_live
+```
+
+# Personal Care Network of the study population
+## Do you have a Primary Medical Provider (PMP)?
+```{r, echo=FALSE,message=FALSE}
+#Do you have a primary Medical Provider (PMP)?Missing values
+screeningData$CSIPrimaryMedicalProvider1[screeningData$CSIPrimaryMedicalProvider1==""] = "No"
+
+invisible(addFreq(screeningData$CSIPrimaryMedicalProvider1,personal_care))
+#personal_care=personal_care[-1,-4]
+rownames(personal_care)=NULL
+
+#Table
+personal_care = personal_care %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(nrow(personal_care), bold = T, italic = T)
+personal_care
+```
+
+## Do you have Primary Health Insurance?
+```{r, echo=FALSE,message=FALSE}
+#Do you have primary Health Insurance, Missing data
+screeningData$CSIPrimaryHealth1[screeningData$CSIPrimaryHealth1==""] = "No"
+
+invisible(addFreq(screeningData$CSIPrimaryHealth1,primary_healthCare))
+primary_healthCare=primary_healthCare[-1,]
+rownames(primary_healthCare)=NULL
+
+#Table
+primary_healthCare = primary_healthCare %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(nrow(primary_healthCare), bold = T, italic = T)
+primary_healthCare
+```
+
+## Do you have Secondary Health Insurance?
+```{r, echo=FALSE,message=FALSE}
+#Secondary Health Insurance, Missing data
+screeningData$CSISecondaryHealth1[screeningData$CSISecondaryHealth1==""] = "No"
+
+invisible(addFreq(screeningData$CSISecondaryHealth1,secondary_healthCare))
+
+secondary_healthCare=secondary_healthCare[-1,]
+rownames(secondary_healthCare)=NULL
+
+#Table
+secondary_healthCare = secondary_healthCare %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(nrow(secondary_healthCare), bold = T, italic = T)
+secondary_healthCare
+```
+
+## Do you have any Specialty Provider(s)
+```{r, echo=FALSE,message=FALSE}
+#Do you have any Specialty Provider(s)?
+screeningData$CSISpecialtyProvider1[screeningData$CSISpecialtyProvider1==""] = "No"
+
+invisible(addFreq(screeningData$CSISpecialtyProvider1,specialtyProvider))
+
+specialtyProvider=specialtyProvider[-1,]
+rownames(specialtyProvider)=NULL
+
+#Table
+specialtyProvider = specialtyProvider %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(nrow(specialtyProvider), bold = T, italic = T)
+specialtyProvider
+```
+
+## Do specialty providers and PMP know about each other's care and coordinate care accordingly?
+```{r, echo=FALSE,message=FALSE}
+#Do specialty providers and PMP know about each other's care and coordinate care accordingly?
+screeningData$CSIPMPKnowEachother1[screeningData$CSIPMPKnowEachother1==""] = "No"
+invisible(addFreq(screeningData$CSIPMPKnowEachother1,knowEach))
+
+knowEach=knowEach[-1,]
+rownames(knowEach)=NULL
+
+#Table
+knowEach = knowEach %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(nrow(knowEach), bold = T, italic = T)
+knowEach
+```
+
+## Do you have a Dental Provider?
+```{r, echo=FALSE,message=FALSE}
+#Dental Provider
+screeningData$CSIDentalProvider1[screeningData$CSIDentalProvider1==""] = "No"
+invisible(addFreq(screeningData$CSIDentalProvider1,dentalProv))
+
+dentalProv=dentalProv[-1,]
+rownames(dentalProv)=NULL
+
+#Table
+dentalProv = dentalProv %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(nrow(dentalProv), bold = T, italic = T)
+dentalProv
+```
+
+## Do you have any other health provider?
+```{r, echo=FALSE,message=FALSE}
+#Do you have any other health provider?
+screeningData$CSIOtherInformalProvider1[screeningData$CSIOtherInformalProvider1==""] = "No"
+
+invisible(addFreq(screeningData$CSIOtherInformalProvider1,other_healthP))
+
+other_healthP=other_healthP[-1,]
+rownames(other_healthP)=NULL
+
+#Table
+other_healthP = other_healthP %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(nrow(other_healthP), bold = T, italic = T)
+other_healthP
+
+```
+
+## Long Term Care Insurance?
+```{r, echo=FALSE,message=FALSE}
+#Long Term Care Insurance. Check with Mitch
+screeningData$CSILongtermInsurance1[screeningData$CSILongtermInsurance1==""] = "No"
+
+invisible(addFreq(screeningData$CSILongtermInsurance1,longTerm_ins))
+longTerm_ins=longTerm_ins[-1,]
+rownames(longTerm_ins)=NULL
+
+#Table
+longTerm_ins = longTerm_ins %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(nrow(longTerm_ins), bold = T, italic = T)
+longTerm_ins
+
+```
+
+## Do you have a Medical Visit companion?
+```{r, echo=FALSE,message=FALSE}
+screeningData$CSIMedicalCompanion1[screeningData$CSIMedicalCompanion1==""] = "No"
+
+invisible(addFreq(screeningData$CSIMedicalCompanion1,visitCompan))
+visitCompan=visitCompan[-1,]
+rownames(visitCompan)=NULL
+
+#Table
+visitCompan = visitCompan %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(nrow(visitCompan), bold = T, italic = T)
+visitCompan
+```
+
+## Medical Visit Companion Specify
+```{r, echo=FALSE,message=FALSE}
+#Medical Visit Companion Specify, Manual entry...
+med_companion = filter(screeningData,CSIMedicalCompanionSpecify!="")
+#Group string
+med_companion = med_companion %>%
+  mutate(MedicalCompanion = ifelse(str_detect(CSIMedicalCompanionSpecify,fixed("Spouse",ignore_case = TRUE)) |str_detect(CSIMedicalCompanionSpecify,fixed("wife",ignore_case = TRUE))|str_detect(CSIMedicalCompanionSpecify,fixed("husband",ignore_case = TRUE)) ,"Spouse",
+ifelse(str_detect(CSIMedicalCompanionSpecify,fixed("Friend",ignore_case = TRUE)),"Friend","Partner/significant other")))
+
+med_companion = med_companion$MedicalCompanion
+
+#create a data frame
+invisible(addFreq(med_companion,companSpec))
+rownames(companSpec)=NULL
+
+#Table
+companSpec = companSpec %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC")%>%
+  row_spec(nrow(companSpec), bold = T, italic = T)
+companSpec
+```
+
+<h2>If you had a serious illness or became disabled in the future, do you have a family member or friend available to provide care on an ongoing basis</h2>
+```{r, echo=FALSE,message=FALSE}
+#If you had a serious...
+s_help
+```
+## Relationship of this person with the participant
+```{r, echo=FALSE,message=FALSE}
+#Relationship of this person with participant
+
+disabled_help
+```
+
+## Do all formal providers and informal care persons know who the PMP is?
+```{r, echo=FALSE,message=FALSE}
+screeningData$CSIKnowPMP1[screeningData$CSIKnowPMP1==""] = "Not Applicable"
+
+invisible(addFreq(screeningData$CSIKnowPMP1,knowPMP))
+knowPMP=knowPMP[-1,]
+rownames(knowPMP)=NULL
+#Table
+knowPMP = knowPMP %>%
+  kable(escape = F, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T, color = "black", background = "#42CAEC") %>%
+  row_spec(nrow(knowPMP), bold = T, italic = T)
+knowPMP
+```
+##
+```{r, echo=FALSE,message=FALSE}
+
+
+```
